@@ -17,9 +17,9 @@ layer {
         scale: 0.0078125
     }    
     data_param {
-        source: "/cns/ok-d/home/zyan/caffe/examples/stanford_background/train_0.sstable"
+        source: "./examples/stanford_background/train_0_lmdb"
         batch_size: 10
-        backend: SSTABLE
+        backend: LMDB
     }
 }
 layer {
@@ -40,9 +40,9 @@ layer {
         scale: 0.0078125
     }    
     data_param {
-        source: "/cns/ok-d/home/zyan/caffe/examples/stanford_background/test_0.sstable"
-        batch_size: 20
-        backend: SSTABLE
+        source: "./examples/stanford_background/test_0_lmdb"
+        batch_size: 10
+        backend: LMDB
     }
 }
 

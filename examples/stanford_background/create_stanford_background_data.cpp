@@ -213,16 +213,9 @@ bool ReadImageSegToDatum(const caffe::string& img_name,
   datum->set_encoded(true);
   datum->clear_labels();
 
-//  image_proto->set_colorspace(cv_img.channels());
-//  image_proto->set_height(cv_img.rows);
-//  image_proto->set_width(cv_img.cols);
-//  image_proto->set_encoded_image_string(reinterpret_cast<char*>(&buf[0]), buf.size());
-//  image_proto->clear_label_proto();
-//  dbelief::Label* label_proto = image_proto->add_label_proto();
   for (int y = 0; y < cv_img.rows; ++y) {
     for (int x = 0; x < cv_img.cols; ++x) {
       datum->add_labels(label_map[y][x]);
-//      label_proto->add_target_class(label_map[y][x]);
     }
   }
   return true;

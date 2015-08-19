@@ -1,5 +1,5 @@
 # The train/test net protocol buffer definition
-net: "/cns/ok-d/home/zyan/caffe/examples/stanford_background/renet_3_lay_HP_nolbw_nopeep_model.prototxt"
+net: "./examples/stanford_background/renet_3_lay_HP_nolbw_nopeep_model.prototxt"
 # test_iter specifies how many forward passes the test should carry out.
 # In the case of MNIST, we have test batch size 100 and 100 test iterations,
 # covering the full 10,000 testing images.
@@ -24,6 +24,6 @@ display: 50
 max_iter: 36000
 # snapshot intermediate results
 snapshot: 1000
-snapshot_prefix: "/cns/ok-d/home/zyan/caffe/examples/stanford_background/renet_3_lay/renet_3_lay_HP_nolbw_nopeep_lr5e-2"
+snapshot_prefix: "./examples/stanford_background/renet_3_lay/renet_3_lay_HP_nolbw_nopeep_lr5e-2"
 # solver mode: CPU or GPU
 solver_mode: GPU
