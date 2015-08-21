@@ -103,5 +103,5 @@ layer {
   bottom: "conv1_full_res"
   top: "prob"
   name: "prob"
-  type: SOFTMAX
+  type: "Softmax"
 }

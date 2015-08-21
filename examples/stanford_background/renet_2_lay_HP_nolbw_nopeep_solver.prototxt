@@ -21,7 +21,7 @@ stepsize: 10000
 # Display every 100 iterations
 display: 50
 # The maximum number of iterations
-max_iter: 30000
+max_iter: 25000
 # snapshot intermediate results
 snapshot: 1000
 snapshot_prefix: "./examples/stanford_background/renet_2_lay/renet_2_lay_HP_nolbw_nopeep_lr5e-2"
