@@ -31,7 +31,8 @@ class LSTM_2DLayerTest : public ::testing::Test {
   virtual ~LSTM_2DLayerTest() { delete blob_bottom_; delete blob_top_; }
 
   virtual void InitParam(LSTM2DParameter *lstm_2d_param, int num_output,
-        int patch_width, int patch_height, Dtype forget_gate_scaling_factor = 0.5) {
+        int patch_width, int patch_height, Dtype forget_gate_scaling_factor = 1.0,
+        bool peephole = true) {
     lstm_2d_param->set_num_output(num_output);
     lstm_2d_param->set_patch_width(patch_width);
     lstm_2d_param->set_patch_height(num_output);
@@ -46,6 +47,8 @@ class LSTM_2DLayerTest : public ::testing::Test {
 
     lstm_2d_param->mutable_forget_gate_bias_filler()->set_type("constant");
     lstm_2d_param->mutable_forget_gate_bias_filler()->set_value(1.0);
+
+    lstm_2d_param->set_peephole(peephole);
   }
 
   Blob<Dtype>* const blob_bottom_;
@@ -61,7 +64,7 @@ TYPED_TEST(LSTM_2DLayerTest, TestGradientPatch2x2){
   LSTM2DParameter *lstm_2d_param = layer_param.mutable_lstm_2d_param();
   this->InitParam(lstm_2d_param, 2, 2, 2);
   LSTM_2DLayer<TypeParam> layer(layer_param);
-  GradientChecker<TypeParam> checker(1e-2, 1e-3);
+  GradientChecker<TypeParam> checker(1e-2, 5e-3);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);
 }
@@ -71,7 +74,27 @@ TYPED_TEST(LSTM_2DLayerTest, TestGradientPatch1x1){
   LSTM2DParameter *lstm_2d_param = layer_param.mutable_lstm_2d_param();
   this->InitParam(lstm_2d_param, 2, 1, 1);
   LSTM_2DLayer<TypeParam> layer(layer_param);
-  GradientChecker<TypeParam> checker(1e-2, 1e-3);
+  GradientChecker<TypeParam> checker(1e-2, 5e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_, 0);
+}
+
+TYPED_TEST(LSTM_2DLayerTest, TestGradientPatch2x2_NoPeephole){
+  LayerParameter layer_param;
+  LSTM2DParameter *lstm_2d_param = layer_param.mutable_lstm_2d_param();
+  this->InitParam(lstm_2d_param, 2, 2, 2, 1.0, false);
+  LSTM_2DLayer<TypeParam> layer(layer_param);
+  GradientChecker<TypeParam> checker(1e-2, 5e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_, 0);
+}
+
+TYPED_TEST(LSTM_2DLayerTest, TestGradientPatch1x1_NoPeephole){
+  LayerParameter layer_param;
+  LSTM2DParameter *lstm_2d_param = layer_param.mutable_lstm_2d_param();
+  this->InitParam(lstm_2d_param, 2, 1, 1, 1.0, false);
+  LSTM_2DLayer<TypeParam> layer(layer_param);
+  GradientChecker<TypeParam> checker(1e-2, 5e-3);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);
 }

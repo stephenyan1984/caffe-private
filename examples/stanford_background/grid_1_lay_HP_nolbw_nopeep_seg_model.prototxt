@@ -7,20 +7,20 @@ layer {
   include {
     phase: TRAIN
   }
-    transform_param {
-        crop_height: 240
-        crop_width: 321
-        mean_value: 104
-        mean_value: 117
-        mean_value: 123
-        mirror: true
-        scale: 0.0078125
-    }    
-    data_param {
-        source: "./examples/stanford_background/train_0_lmdb"
-        batch_size: 10
-        backend: LMDB
-    }
+  transform_param {
+    crop_height: 240
+    crop_width: 321
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
+    mirror: true
+    scale: 0.0078125
+  }    
+  data_param {
+      source: "./examples/stanford_background/train_0_lmdb"
+      batch_size: 10
+      backend: LMDB
+  }
 }
 layer {
   name: "data"
@@ -30,20 +30,20 @@ layer {
   include {
     phase: TEST
   }
-    transform_param {
-        crop_height: 240
-        crop_width: 321
-        mean_value: 104
-        mean_value: 117
-        mean_value: 123
-        mirror: false
-        scale: 0.0078125
-    }    
-    data_param {
-        source: "./examples/stanford_background/test_0_lmdb"
-        batch_size: 10
-        backend: LMDB
-    }
+  transform_param {
+    crop_height: 240
+    crop_width: 321
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
+    mirror: false
+    scale: 0.0078125
+  }    
+  data_param {
+      source: "./examples/stanford_background/test_0_lmdb"
+      batch_size: 10
+      backend: LMDB
+  }
 }
 
 layer {

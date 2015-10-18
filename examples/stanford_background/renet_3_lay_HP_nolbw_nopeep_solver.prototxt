@@ -27,3 +27,4 @@ snapshot: 1000
 snapshot_prefix: "./examples/stanford_background/renet_3_lay/renet_3_lay_HP_nolbw_nopeep_lr5e-2"
 # solver mode: CPU or GPU
 solver_mode: GPU
+device_id: 0

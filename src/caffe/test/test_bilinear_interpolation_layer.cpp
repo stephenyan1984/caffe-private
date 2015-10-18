@@ -20,7 +20,7 @@ class BilinearInterpolationLayerTest: public MultiDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
  protected:
   BilinearInterpolationLayerTest() :
-      blob_bottom_(new Blob<Dtype>(2, 2, 3, 3)), blob_top_(new Blob<Dtype>()) {
+      blob_bottom_(new Blob<Dtype>(2, 2, 4, 6)), blob_top_(new Blob<Dtype>()) {
     // fill the values
     FillerParameter filler_param;
     GaussianFiller<Dtype> filler(filler_param);
@@ -76,6 +76,26 @@ TYPED_TEST(BilinearInterpolationLayerTest, TestGradient5X){
 
   BilinearInterpolationLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(BilinearInterpolationLayerTest, TestGradient_TargetSize7x9){
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  BilinearInterpolationParameter *bilinear_interpolation_param = layer_param.mutable_bilinear_interpolation_param();
+  this->InitParam(bilinear_interpolation_param, 5);
+
+  BilinearInterpolationLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+
+  vector<int> size_blob_shape(1);
+  size_blob_shape[0] = 2;
+  Blob<Dtype> size_blob(size_blob_shape);
+  Dtype *size_blob_data = size_blob.mutable_cpu_data();
+  size_blob_data[0] = 7;
+  size_blob_data[1] = 9;
+  this->blob_bottom_vec_.push_back(&size_blob);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }

@@ -30,6 +30,8 @@ void Blob<Dtype>::Reshape(const vector<int>& shape) {
     shape_[i] = shape[i];
   }
   if (count_ > capacity_) {
+//    LOG(INFO)<<"Blob<Dtype>::Reshape old capacity "<<capacity_
+//        <<" new capacity "<<count_<<" shape: "<<shape_string();
     capacity_ = count_;
     data_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
     diff_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
@@ -144,7 +146,7 @@ void Blob<Dtype>::Update() {
   switch (data_->head()) {
   case SyncedMemory::HEAD_AT_CPU:
     // perform computation on CPU
-    LOG_FIRST_N(INFO, 100)<<"Blob<Dtype>::Update shape "<<
+    LOG_FIRST_N(INFO, 400)<<"Blob<Dtype>::Update shape "<<
   	this->shape_string()<<" asum data "<<
   	this->asum_data()<<" asum diff "<<
   	this->asum_diff()<<" ratio "<<this->asum_diff()/this->asum_data();
@@ -156,7 +158,7 @@ void Blob<Dtype>::Update() {
   case SyncedMemory::SYNCED:
 #ifndef CPU_ONLY
     // perform computation on GPU
-    LOG_FIRST_N(INFO, 100)<<"Blob<Dtype>::Update shape "<<
+    LOG_FIRST_N(INFO, 400)<<"Blob<Dtype>::Update shape "<<
     this->shape_string()<<" asum data "<<
     this->asum_data()<<" asum diff "<<
     this->asum_diff()<<" ratio "<<this->asum_diff()/this->asum_data();

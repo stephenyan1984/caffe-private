@@ -29,6 +29,11 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       && conv_param.has_stride_w())
       || (!conv_param.has_stride_h() && !conv_param.has_stride_w()))
       << "Stride is stride OR stride_h and stride_w are required.";
+  CHECK((!conv_param.has_hole() && conv_param.has_hole_h()
+      && conv_param.has_hole_w())
+      || (!conv_param.has_hole_h() && !conv_param.has_hole_w()))
+      << "Hole is hole OR hole_h and hole_w are required.";
+
   if (conv_param.has_kernel_size()) {
     kernel_h_ = kernel_w_ = conv_param.kernel_size();
   } else {
@@ -49,10 +54,17 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
     stride_h_ = conv_param.stride_h();
     stride_w_ = conv_param.stride_w();
   }
+  if (!conv_param.has_hole_h()) {
+    hole_h_ = hole_w_ = conv_param.hole();
+  } else {
+    hole_h_ = conv_param.hole_h();
+    hole_w_ = conv_param.hole_w();
+  }
   // Special case: im2col is the identity for 1x1 convolution with stride 1
   // and no padding, so flag for skipping the buffer and transformation.
   is_1x1_ = kernel_w_ == 1 && kernel_h_ == 1
-      && stride_h_ == 1 && stride_w_ == 1 && pad_h_ == 0 && pad_w_ == 0;
+      && stride_h_ == 1 && stride_w_ == 1 && pad_h_ == 0 && pad_w_ == 0
+      && hole_h_ == 1 && hole_w_ == 1;
   // Configure output channels and groups.
   channels_ = bottom[0]->channels();
   num_output_ = this->layer_param_.convolution_param().num_output();
@@ -105,9 +117,6 @@ void BaseConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   CHECK_EQ(4, bottom[0]->num_axes()) << "Input must have 4 axes, "
       << "corresponding to (num, channels, height, width)";
-  DLOG(WARNING)<<"BaseConvolutionLayer<Dtype>::Reshape "<<bottom[0]->shape(0)
-  		<<" "<<bottom[0]->shape(1)<<" "<<bottom[0]->shape(2)
-  		<<" "<<bottom[0]->shape(3);
   num_ = bottom[0]->num();
   height_ = bottom[0]->height();
   width_ = bottom[0]->width();
@@ -125,8 +134,6 @@ void BaseConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   }
   // Shape the tops.
   compute_output_shape();
-  DLOG(WARNING)<<"BaseConvolutionLayer<Dtype>::Reshape "<<num_<<
-  		" "<<num_output_<<" "<<height_out_<<" "<<width_out_;
   for (int top_id = 0; top_id < top.size(); ++top_id) {
     top[top_id]->Reshape(num_, num_output_, height_out_, width_out_);
   }

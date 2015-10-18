@@ -38,7 +38,7 @@ void ImageSegUniformSizeDataLayer<Dtype>::DataLayerSetUp(
   if (this->layer_param_.data_param().rand_skip()) {
     unsigned int skip = caffe_rng_rand()
         % this->layer_param_.data_param().rand_skip();
-    LOG(INFO) << "Skipping first " << skip << " data points.";
+    LOG(INFO)<< "Skipping first " << skip << " data points.";
     while (skip-- > 0) {
       cursor_->Next();
     }
@@ -52,18 +52,20 @@ void ImageSegUniformSizeDataLayer<Dtype>::DataLayerSetUp(
   int crop_width = this->layer_param_.transform_param().crop_width();
 
   if (crop_size > 0) {
-    CHECK_EQ(crop_height, 0)
-        << "crop_size and crop_height can not both be non-zero";
+    CHECK_EQ(crop_height, 0)<< "crop_size and crop_height can not both be non-zero";
     CHECK_EQ(crop_width, 0)
-        << "crop_size and crop_width can not both be non-zero";
+    << "crop_size and crop_width can not both be non-zero";
     crop_height = crop_size;
     crop_width = crop_size;
   }
 
   int batch_size = this->layer_param_.data_param().batch_size();
-  if (crop_height > 0 || crop_width > 0) {
+  if (crop_height > 0 && crop_width > 0) {
     CHECK_GT(crop_height, 0);
     CHECK_GT(crop_width, 0);
+    LOG(INFO)<<"Reshape top blobs according to cropping height and width: "
+    <<crop_height<<" x "<<crop_width;
+
     top[0]->Reshape(batch_size, datum.channels(), crop_height, crop_width);
     this->prefetch_data_.Reshape(batch_size, datum.channels(), crop_height,
         crop_width);
@@ -75,18 +77,42 @@ void ImageSegUniformSizeDataLayer<Dtype>::DataLayerSetUp(
       this->transformed_label_.Reshape(1, 1, crop_height, crop_width);
     }
   } else {
-    top[0]->Reshape(batch_size, datum.channels(), datum.height(),
-        datum.width());
-    this->prefetch_data_.Reshape(batch_size, datum.channels(), datum.height(),
-        datum.width());
-    this->transformed_data_.Reshape(1, datum.channels(), datum.height(),
-        datum.width());
+    int min_height = this->layer_param_.transform_param().min_height();
+    int min_width = this->layer_param_.transform_param().min_width();
+    CHECK_GT(min_height, 0);
+    CHECK_GT(min_width, 0);
+
+    int height_multiple =
+        this->layer_param_.transform_param().height_multiple();
+    int width_multiple = this->layer_param_.transform_param().width_multiple();
+    CHECK_GT(height_multiple, 0);
+    CHECK_GT(width_multiple, 0);
+
+    min_height = (min_height / height_multiple) * height_multiple;
+    min_width = (min_width / width_multiple) * width_multiple;
+
+    CHECK_GT(min_height, 0);
+    CHECK_GT(min_width, 0);
+
+    LOG(INFO)<<"Reshape top blobs according to min height and width: "
+    <<min_height<<" x "<<min_width;
+    top[0]->Reshape(batch_size, datum.channels(), min_height, min_width);
+    this->prefetch_data_.Reshape(batch_size, datum.channels(), min_height,
+        min_width);
+    this->transformed_data_.Reshape(1, datum.channels(), min_height, min_width);
     if (this->output_labels_) {
-      top[1]->Reshape(batch_size, 1, datum.height(), datum.width());
-      this->prefetch_label_.Reshape(batch_size, 1, datum.height(),
-          datum.width());
-      this->transformed_label_.Reshape(1, 1, datum.height(), datum.width());
+      top[1]->Reshape(batch_size, 1, min_height, min_width);
+      this->prefetch_label_.Reshape(batch_size, 1, min_height, min_width);
+      this->transformed_label_.Reshape(1, 1, min_height, min_width);
     }
+  }
+  if (top.size() == 3) {
+    vector<int> size_blob_shape(1);
+    size_blob_shape[0] = 2;
+    top[2]->Reshape(size_blob_shape);
+    Dtype *size_blob_data = top[2]->mutable_cpu_data();
+    size_blob_data[0] = this->prefetch_data_.shape(2);
+    size_blob_data[1] = this->prefetch_data_.shape(3);
   }
 }
 
@@ -107,6 +133,9 @@ void ImageSegUniformSizeDataLayer<Dtype>::InternalThreadEntry() {
     top_label = this->prefetch_label_.mutable_cpu_data();
   }
 
+  int crop_height = this->layer_param_.transform_param().crop_height();
+  int crop_width = this->layer_param_.transform_param().crop_width();
+
   const int batch_size = this->layer_param_.data_param().batch_size();
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     timer.Start();
@@ -118,12 +147,40 @@ void ImageSegUniformSizeDataLayer<Dtype>::InternalThreadEntry() {
     if (datum.encoded()) {
       cv_img = DecodeDatumToCVMatNative(datum);
       if (cv_img.channels() != this->transformed_data_.channels()) {
-        LOG(WARNING) << "Your dataset contains encoded images with mixed "
-            << "channel sizes. Consider adding a 'force_color' flag to the "
-            << "model definition, or rebuild your dataset using "
-            << "convert_imageset.";
+        LOG(WARNING)<< "Your dataset contains encoded images with mixed "
+        << "channel sizes. Consider adding a 'force_color' flag to the "
+        << "model definition, or rebuild your dataset using "
+        << "convert_imageset.";
       }
     }
+    // Use the aspect ratio in the 1st sample in the mini-batch
+    // to decide cropping height and width
+    // Make sure training images samples are sorted by aspect ratio
+    if (crop_height == 0 && crop_width == 0 && item_id == 0) {
+      Dtype aspect_ratio = 0;
+      if (datum.encoded()) {
+        aspect_ratio = (Dtype) cv_img.rows / (Dtype) cv_img.cols;
+      } else {
+        aspect_ratio = (Dtype) (datum.height()) / (Dtype) (datum.width());
+      }
+      this->data_transformer_->ComputeCropHeightWidth(aspect_ratio);
+
+      this->prefetch_data_.Reshape(batch_size, datum.channels(),
+          this->data_transformer_->crop_height_from_aspect_ratio(),
+          this->data_transformer_->crop_width_from_aspect_ratio());
+      this->transformed_data_.Reshape(1, datum.channels(),
+          this->data_transformer_->crop_height_from_aspect_ratio(),
+          this->data_transformer_->crop_width_from_aspect_ratio());
+      if (this->output_labels_) {
+        this->prefetch_label_.Reshape(batch_size, 1,
+            this->data_transformer_->crop_height_from_aspect_ratio(),
+            this->data_transformer_->crop_width_from_aspect_ratio());
+        this->transformed_label_.Reshape(1, 1,
+            this->data_transformer_->crop_height_from_aspect_ratio(),
+            this->data_transformer_->crop_width_from_aspect_ratio());
+      }
+    }
+
     read_time += timer.MicroSeconds();
     timer.Start();
 
@@ -156,7 +213,7 @@ void ImageSegUniformSizeDataLayer<Dtype>::InternalThreadEntry() {
     // go to the next iter
     cursor_->Next();
     if (!cursor_->valid()) {
-      DLOG(INFO) << "Restarting data prefetching from start.";
+      DLOG(INFO)<< "Restarting data prefetching from start.";
       cursor_->SeekToFirst();
     }
   }  // for (int item_id = 0; item_id < batch_size; ++item_id)
@@ -164,29 +221,8 @@ void ImageSegUniformSizeDataLayer<Dtype>::InternalThreadEntry() {
   LOG_FIRST_N(INFO, 10) << "Prefetch batch: " << batch_timer.MilliSeconds()
       << " ms.";
   LOG_FIRST_N(INFO, 10) << "     Read time: " << read_time / 1000 << " ms.";
-  LOG_FIRST_N(INFO, 10) << "Transform time: " << trans_time / 1000 << " ms.";
-}
-
-template<typename Dtype>
-void ImageSegUniformSizeDataLayer<Dtype>::Forward_cpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  // First, join the thread
-  this->JoinPrefetchThread();
-  LOG_FIRST_N(INFO, 10) << "Thread joined";
-  // Reshape to loaded data.
-  top[0]->Reshape(this->prefetch_data_.num(), this->prefetch_data_.channels(),
-      this->prefetch_data_.height(), this->prefetch_data_.width());
-  // Copy the data
-  caffe_copy(this->prefetch_data_.count(), this->prefetch_data_.cpu_data(),
-      top[0]->mutable_cpu_data());
-  LOG_FIRST_N(INFO, 10) << "Prefetch copied";
-  if (this->output_labels_) {
-    caffe_copy(this->prefetch_label_.count(), this->prefetch_label_.cpu_data(),
-        top[1]->mutable_cpu_data());
-  }
-  // Start a new prefetch thread
-  LOG_FIRST_N(INFO, 10) << "CreatePrefetchThread";
-  this->CreatePrefetchThread();
+  LOG_FIRST_N(INFO, 10)
+  << "Transform time: " << trans_time / 1000 << " ms.";
 }
 
 INSTANTIATE_CLASS(ImageSegUniformSizeDataLayer);

@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
       }
     }
     // sequential
-    int length = snprintf(key_cstr, kMaxKeyLength, "%08d_%s", line_id,
+    int length = snprintf(key_cstr, kMaxKeyLength, "%s",
         lines[line_id].first.c_str());
 
     // Put in db
