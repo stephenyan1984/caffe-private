@@ -15,14 +15,14 @@ __global__ void Fill_X_H_Data(ReNetLSTMParameter::Direction dir, int dir_num,
     int patch_ny, int patch_nx, int num, int patch_h, int patch_w,
     int bottom_channels, int num_output, int step_id, int step_start,
     Dtype *X_H_data, const Dtype *hidden_data, const Dtype *bottom_data) {
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
   int bottom_height = patch_ny * patch_h;
   int bottom_width = patch_nx * patch_w;
   int X_H_dim = bottom_channels * patch_h * patch_w + num_output;
   bool not_start = step_id != step_start;
   const Dtype *hidden_data_ptr = NULL;
-  CUDA_KERNEL_LOOP(index, num_RNN * num) {
+  CUDA_KERNEL_LOOP(index, num_RNN * num)
+  {
     int RNN = index / num;
     int n = index % num;
     Dtype *X_H_data_ptr = X_H_data
@@ -60,9 +60,9 @@ __global__ void compute_cell_state_part_one(ReNetLSTMParameter::Direction dir,
     Dtype *gi_data, Dtype *ci_data, Dtype *go_data, Dtype *gf_data,
     Dtype *cstate_data, const Dtype *cstate_data_prev, Dtype *hidden_data,
     Dtype *top_data) {
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
-  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output) {
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output)
+  {
     gi_data[index] = sigmoid_dev<Dtype>(gi_data[index]);
     ci_data[index] = tanh_dev<Dtype>(ci_data[index]);
     gf_data[index] = sigmoid_dev<Dtype>(gf_data[index]);
@@ -80,16 +80,15 @@ __global__ void compute_cell_state_part_two(ReNetLSTMParameter::Direction dir,
     Dtype *gi_data, Dtype *ci_data, Dtype *go_data, Dtype *gf_data,
     Dtype *cstate_data, const Dtype *cstate_data_prev, Dtype *hidden_data,
     Dtype *top_data) {
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
-  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output) {
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output)
+  {
     int RNN = index / (num * num_output);
     int rm = index % (num * num_output);
     int n = rm / num_output;
     int d = rm % num_output;
     go_data[index] = sigmoid_dev<Dtype>(go_data[index]);
-    hidden_data[index] = go_data[index]
-        * tanh_dev<Dtype>(cstate_data[index]);
+    hidden_data[index] = go_data[index] * tanh_dev<Dtype>(cstate_data[index]);
     int y = dir == ReNetLSTMParameter_Direction_X_DIR ? RNN : step_id;
     int x = dir == ReNetLSTMParameter_Direction_X_DIR ? step_id : RNN;
     int top_idx = blob_offset(2 * num_output, patch_ny, patch_nx, n,
@@ -120,12 +119,17 @@ void ReNetLSTMLayer<Dtype>::ComputeCellData_gpu(int dir_num, int step_id,
       this->blobs_[dir_num * num_blobs_per_dir_ + 2]->gpu_data();
   const Dtype* param_W_f_data =
       this->blobs_[dir_num * num_blobs_per_dir_ + 3]->gpu_data();
-  const Dtype* param_W_i_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->gpu_data();
-  const Dtype* param_W_o_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->gpu_data();
-  const Dtype* param_W_f_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->gpu_data();
+  const Dtype* param_W_i_c_data = NULL;
+  const Dtype* param_W_o_c_data = NULL;
+  const Dtype* param_W_f_c_data = NULL;
+  if (peephole_) {
+    param_W_i_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 4]->gpu_data();
+    param_W_o_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 5]->gpu_data();
+    param_W_f_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 6]->gpu_data();
+  }
 
   Dtype* gi_data = gi_data_[dir_num]->mutable_gpu_data()
       + gi_data_[dir_num]->offset(step_id);
@@ -248,6 +252,9 @@ void ReNetLSTMLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       ComputeCellData_gpu(dir_num, step_id, step_start, top[0]);
     }
   }
+  Dtype mean_L1_norm = top[0]->asum_data() / top[0]->count();
+  DLOG(INFO)<<"ReNetLSTMLayer "<<this->layer_param_.name()<<
+      " mean_L1_norm "<<mean_L1_norm;
 }
 
 template<typename Dtype>
@@ -255,11 +262,11 @@ __global__ void FillHiddenDiff(ReNetLSTMParameter::Direction dir, int dir_num,
     int patch_ny, int patch_nx, int num, int patch_h, int patch_w,
     int bottom_channels, int num_output, int step_id, int step_end,
     const Dtype *X_H_diff, Dtype *hidden_diff, const Dtype *top_diff) {
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
   int patch_dim = bottom_channels * patch_h * patch_w;
   int X_H_dim = patch_dim + num_output;
-  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output) {
+  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output)
+  {
     int RNN = index / (num * num_output);
     int rm = index % (num * num_output);
     int n = rm / num_output;
@@ -286,15 +293,15 @@ __global__ void ComputeCellDiffPartOne(ReNetLSTMParameter::Direction dir,
     Dtype *ci_diff, Dtype *go_diff, Dtype *gf_diff, Dtype *cstate_diff,
     Dtype *cstate_next_diff, Dtype *hidden_diff) {
   int step = dir_num == 0 ? 1 : -1;
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
 
   const Dtype *gf_next_data = NULL;
   if (step_id != step_end) {
     gf_next_data = gf_data + step * num_RNN * num * num_output;
   }
 
-  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output) {
+  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output)
+  {
     Dtype cstate_val = cstate_data[index];
     Dtype go_val = go_data[index];
 
@@ -318,15 +325,15 @@ __global__ void ComputeCellDiffPartTwo(ReNetLSTMParameter::Direction dir,
     Dtype *gi_next_diff, Dtype *gf_next_diff, Dtype *cstate_next_diff,
     Dtype *hidden_diff) {
   int step = dir_num == 0 ? 1 : -1;
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
 
   const Dtype *cstate_prev_data = NULL;
   if (step_id != step_start) {
     cstate_prev_data = cstate_data - step * num_RNN * num * num_output;
   }
 
-  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output) {
+  CUDA_KERNEL_LOOP(index, num_RNN * num * num_output)
+  {
     if (step_id != step_start) {
       gf_diff[index] = cstate_diff[index] * cstate_prev_data[index]
           * sigmoid_diff_y_dev<Dtype>(gf_data[index]);
@@ -370,12 +377,17 @@ void ReNetLSTMLayer<Dtype>::ComputeCellDiff_gpu(int dir_num, int step_id,
 
   bool not_end = step_id != step_end;
 
-  const Dtype* param_W_i_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->gpu_data();
-  const Dtype* param_W_o_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->gpu_data();
-  const Dtype* param_W_f_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->gpu_data();
+  const Dtype* param_W_i_c_data = NULL;
+  const Dtype* param_W_o_c_data = NULL;
+  const Dtype* param_W_f_c_data = NULL;
+  if (peephole_) {
+    param_W_i_c_data =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 4]->gpu_data();
+    param_W_o_c_data =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 5]->gpu_data();
+    param_W_f_c_data =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 6]->gpu_data();
+  }
 
   Dtype *go_diff = go_diff_[dir_num]->mutable_gpu_data();
   Dtype *gi_next_diff = gi_next_diff_[dir_num]->mutable_gpu_data();
@@ -418,17 +430,17 @@ void ReNetLSTMLayer<Dtype>::ComputeCellDiff_gpu(int dir_num, int step_id,
 
 // copy gradients w.r.t. X_H_ into bottom diff
 template<typename Dtype>
-__global__ void UpdateBottomDiff(ReNetLSTMParameter::Direction dir,
-    int dir_num, int patch_ny, int patch_nx, int num, int patch_h, int patch_w,
+__global__ void UpdateBottomDiff(ReNetLSTMParameter::Direction dir, int dir_num,
+    int patch_ny, int patch_nx, int num, int patch_h, int patch_w,
     int bottom_channels, int num_output, int step_id, const Dtype *X_H_diff,
     Dtype *bottom_diff) {
-  int num_RNN =
-      dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
+  int num_RNN = dir == ReNetLSTMParameter_Direction_X_DIR ? patch_ny : patch_nx;
   int patch_dim = bottom_channels * patch_h * patch_w;
   int X_H_dim = patch_dim + num_output;
   int bottom_height = patch_ny * patch_h;
   int bottom_width = patch_nx * patch_w;
-  CUDA_KERNEL_LOOP(index, num_RNN * num) {
+  CUDA_KERNEL_LOOP(index, num_RNN * num)
+  {
     int RNN = index / num;
     int n = index % num;
     const Dtype *X_H_diff_ptr = X_H_diff
@@ -479,8 +491,7 @@ void ReNetLSTMLayer<Dtype>::Compute_X_H_Diff_gpu(int dir_num, int step_id,
       num_output_, (Dtype) 1., go_diff, param_W_o_data, (Dtype) 1., X_H_diff);
   if (step_id != step_start) {
     caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_RNN_ * num_, X_H_dim,
-        num_output_, (Dtype) 1., gf_diff, param_W_f_data, (Dtype) 1.,
-        X_H_diff);
+        num_output_, (Dtype) 1., gf_diff, param_W_f_data, (Dtype) 1., X_H_diff);
   }
   UpdateBottomDiff<Dtype> <<<CAFFE_GET_BLOCKS(num_RNN_ * num_),
       CAFFE_CUDA_NUM_THREADS>>>(dir_, dir_num, patch_ny_, patch_nx_, num_,
@@ -518,12 +529,17 @@ void ReNetLSTMLayer<Dtype>::ComputeParamDiff_gpu(int dir_num, int step_id,
       this->blobs_[dir_num * num_blobs_per_dir_ + 2]->mutable_gpu_diff();
   Dtype* param_W_f_diff =
       this->blobs_[dir_num * num_blobs_per_dir_ + 3]->mutable_gpu_diff();
-  Dtype* param_W_i_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->mutable_gpu_diff();
-  Dtype* param_W_o_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->mutable_gpu_diff();
-  Dtype* param_W_f_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->mutable_gpu_diff();
+  Dtype* param_W_i_c_diff = NULL;
+  Dtype* param_W_o_c_diff = NULL;
+  Dtype* param_W_f_c_diff = NULL;
+  if (peephole_) {
+    param_W_i_c_diff =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 4]->mutable_gpu_diff();
+    param_W_o_c_diff =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 5]->mutable_gpu_diff();
+    param_W_f_c_diff =
+          this->blobs_[dir_num * num_blobs_per_dir_ + 6]->mutable_gpu_diff();
+  }
 
   Dtype* bias_b_i_diff =
       this->blobs_[dir_num * num_blobs_per_dir_ + 7]->mutable_gpu_diff();
@@ -556,8 +572,7 @@ void ReNetLSTMLayer<Dtype>::ComputeParamDiff_gpu(int dir_num, int step_id,
     }
     if (peephole_) {
       caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, num_output_, num_output_,
-          num_, (Dtype) 1., go_diff, cstate_data, (Dtype) 1.,
-          param_W_o_c_diff);
+          num_, (Dtype) 1., go_diff, cstate_data, (Dtype) 1., param_W_o_c_diff);
     }
 
     // compute gradients w.r.t. biases

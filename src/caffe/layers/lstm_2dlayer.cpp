@@ -66,16 +66,23 @@ void LSTM_2DLayer_Forward_Worker<Dtype>::InternalThreadEntry() {
   const Dtype *param_W_yf_data = layer_->blobs_[dir_
       * layer_->num_blobs_per_dir_ + 4]->cpu_data();
   // 5 parameter matrices W^x_{i,c}, W^y_{i,c}, W^x_{f,c}, W^y_{f,c}, W_{o,c}
-  const Dtype *param_W_xic_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 5]->cpu_data();
-  const Dtype *param_W_yic_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 6]->cpu_data();
-  const Dtype *param_W_xfc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 7]->cpu_data();
-  const Dtype *param_W_yfc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 8]->cpu_data();
-  const Dtype *param_W_oc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 9]->cpu_data();
+  const Dtype *param_W_xic_data = NULL;
+  const Dtype *param_W_yic_data = NULL;
+  const Dtype *param_W_xfc_data = NULL;
+  const Dtype *param_W_yfc_data = NULL;
+  const Dtype *param_W_oc_data = NULL;
+  if (layer_->peephole_) {
+    param_W_xic_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 5]->cpu_data();
+    param_W_yic_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 6]->cpu_data();
+    param_W_xfc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 7]->cpu_data();
+    param_W_yfc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 8]->cpu_data();
+    param_W_oc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 9]->cpu_data();
+  }
 
   Dtype *X_Hx_Hy_data = layer_->X_Hx_Hy_data_[dir_]->mutable_cpu_data();
   Dtype *hidden_same_row_data =
@@ -333,16 +340,23 @@ void LSTM_2DLayer_Backward_Worker<Dtype>::InternalThreadEntry() {
   const Dtype *param_W_yf_data = layer_->blobs_[dir_
       * layer_->num_blobs_per_dir_ + 4]->cpu_data();
   // 5 parameter matrices W^x_{i,c}, W^y_{i,c}, W^x_{f,c}, W^y_{f,c}, W_{o,c}
-  const Dtype *param_W_xic_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 5]->cpu_data();
-  const Dtype *param_W_yic_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 6]->cpu_data();
-  const Dtype *param_W_xfc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 7]->cpu_data();
-  const Dtype *param_W_yfc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 8]->cpu_data();
-  const Dtype *param_W_oc_data = layer_->blobs_[dir_
-      * layer_->num_blobs_per_dir_ + 9]->cpu_data();
+  const Dtype *param_W_xic_data = NULL;
+  const Dtype *param_W_yic_data = NULL;
+  const Dtype *param_W_xfc_data = NULL;
+  const Dtype *param_W_yfc_data = NULL;
+  const Dtype *param_W_oc_data = NULL;
+  if (layer_->peephole_) {
+    param_W_xic_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 5]->cpu_data();
+    param_W_yic_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 6]->cpu_data();
+    param_W_xfc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 7]->cpu_data();
+    param_W_yfc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 8]->cpu_data();
+    param_W_oc_data = layer_->blobs_[dir_
+          * layer_->num_blobs_per_dir_ + 9]->cpu_data();
+  }
 
   int blobs_offset = dir_ * layer_->num_blobs_per_dir_;
   Dtype *param_W_i_diff = layer_->blobs_[blobs_offset]->mutable_cpu_diff();
@@ -352,16 +366,24 @@ void LSTM_2DLayer_Backward_Worker<Dtype>::InternalThreadEntry() {
       layer_->blobs_[blobs_offset + 3]->mutable_cpu_diff();
   Dtype *param_W_yf_diff =
       layer_->blobs_[blobs_offset + 4]->mutable_cpu_diff();
-  Dtype *param_W_xic_diff =
-      layer_->blobs_[blobs_offset + 5]->mutable_cpu_diff();
-  Dtype *param_W_yic_diff =
-      layer_->blobs_[blobs_offset + 6]->mutable_cpu_diff();
-  Dtype *param_W_xfc_diff =
-      layer_->blobs_[blobs_offset + 7]->mutable_cpu_diff();
-  Dtype *param_W_yfc_diff =
-      layer_->blobs_[blobs_offset + 8]->mutable_cpu_diff();
-  Dtype *param_W_oc_diff =
-      layer_->blobs_[blobs_offset + 9]->mutable_cpu_diff();
+  Dtype *param_W_xic_diff = NULL;
+  Dtype *param_W_yic_diff = NULL;
+  Dtype *param_W_xfc_diff = NULL;
+  Dtype *param_W_yfc_diff = NULL;
+  Dtype *param_W_oc_diff = NULL;
+  if (layer_->peephole_) {
+    param_W_xic_diff =
+          layer_->blobs_[blobs_offset + 5]->mutable_cpu_diff();
+    param_W_yic_diff =
+          layer_->blobs_[blobs_offset + 6]->mutable_cpu_diff();
+    param_W_xfc_diff =
+          layer_->blobs_[blobs_offset + 7]->mutable_cpu_diff();
+    param_W_yfc_diff =
+          layer_->blobs_[blobs_offset + 8]->mutable_cpu_diff();
+    param_W_oc_diff =
+          layer_->blobs_[blobs_offset + 9]->mutable_cpu_diff();
+  }
+
   Dtype* bias_b_i_diff = layer_->blobs_[blobs_offset + 10]->mutable_cpu_diff();
   Dtype* bias_b_c_diff = layer_->blobs_[blobs_offset + 11]->mutable_cpu_diff();
   Dtype* bias_b_o_diff = layer_->blobs_[blobs_offset + 12]->mutable_cpu_diff();

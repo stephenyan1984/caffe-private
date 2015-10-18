@@ -4,6 +4,7 @@
 #include "caffe/layer_factory.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/vision_layers.hpp"
+#include "caffe/shift_pooling_layer.hpp"
 
 #ifdef WITH_PYTHON_LAYER
 #include "caffe/python_layer.hpp"
@@ -65,6 +66,29 @@ shared_ptr<Layer<Dtype> > GetPoolingLayer(const LayerParameter& param) {
 
 REGISTER_LAYER_CREATOR(Pooling, GetPoolingLayer);
 
+// Get pooling layer according to engine.
+template <typename Dtype>
+shared_ptr<Layer<Dtype> > GetShiftPoolingLayer(const LayerParameter& param) {
+  PoolingParameter_Engine engine = param.pooling_param().engine();
+  if (engine == PoolingParameter_Engine_DEFAULT) {
+    engine = PoolingParameter_Engine_CAFFE;
+#ifdef USE_CUDNN
+    engine = PoolingParameter_Engine_CUDNN;
+#endif
+  }
+  if (engine == PoolingParameter_Engine_CAFFE) {
+    return shared_ptr<Layer<Dtype> >(new ShiftPoolingLayer<Dtype>(param));
+#ifdef USE_CUDNN
+  } else if (engine == PoolingParameter_Engine_CUDNN) {
+    return shared_ptr<Layer<Dtype> >(new ShiftPoolingLayer<Dtype>(param));
+#endif
+  } else {
+    LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
+  }
+}
+
+REGISTER_LAYER_CREATOR(ShiftPooling, GetShiftPoolingLayer);
+
 // Get relu layer according to engine.
 template <typename Dtype>
 shared_ptr<Layer<Dtype> > GetReLULayer(const LayerParameter& param) {
@@ -118,7 +142,7 @@ shared_ptr<Layer<Dtype> > GetSoftmaxLayer(const LayerParameter& param) {
   if (engine == SoftmaxParameter_Engine_DEFAULT) {
     engine = SoftmaxParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
-    engine = SoftmaxParameter_Engine_CUDNN;
+//    engine = SoftmaxParameter_Engine_CUDNN;
 #endif
   }
   if (engine == SoftmaxParameter_Engine_CAFFE) {

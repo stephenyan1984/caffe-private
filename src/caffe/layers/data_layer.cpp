@@ -121,8 +121,10 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     cv::Mat cv_img;
     if (datum.encoded()) {
       if (force_color) {
+        LOG(INFO)<<" datum encoded force_color";
         cv_img = DecodeDatumToCVMat(datum, true);
       } else {
+        LOG(INFO)<<" datum encoded not force_color";
         cv_img = DecodeDatumToCVMatNative(datum);
       }
       if (cv_img.channels() != this->transformed_data_.channels()) {
@@ -131,6 +133,8 @@ void DataLayer<Dtype>::InternalThreadEntry() {
         << "model definition, or rebuild your dataset using "
         << "convert_imageset.";
       }
+    } else {
+      LOG(INFO)<<"datum not encoded ";
     }
     read_time += timer.MicroSeconds();
     timer.Start();
@@ -143,8 +147,10 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     } else {
       this->data_transformer_->Transform(datum, &(this->transformed_data_));
     }
+    LOG(INFO)<<"image data first pixel "<<top_data[offset];
     if (this->output_labels_) {
       top_label[item_id] = datum.label();
+      LOG(INFO)<<"DataLayer<Dtype>::InternalThreadEntry label "<<datum.label();
     }
     trans_time += timer.MicroSeconds();
     // go to the next iter

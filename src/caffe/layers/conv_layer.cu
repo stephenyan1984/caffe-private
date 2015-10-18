@@ -24,6 +24,9 @@ void ConvolutionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       }
     }
   }
+  Dtype mean_L1_norm = top[0]->asum_data() / top[0]->count();
+  DLOG(INFO)<<"ConvolutionLayer "<<this->layer_param_.name()<<
+      " mean_L1_norm "<<mean_L1_norm;
 }
 
 template <typename Dtype>

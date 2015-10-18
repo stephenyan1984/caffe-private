@@ -14,16 +14,14 @@ template<typename Dtype>
 void ReNetLSTMLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   peephole_ = this->layer_param_.renet_lstm_param().peephole();
-  LOG(INFO) << "ReNetLSTMLayer " << this->layer_param_.name()
-      << " Peephole connections is enabled ? " << peephole_;
+  LOG(INFO)<< "ReNetLSTMLayer " << this->layer_param_.name()
+  << " Peephole connections is enabled ? " << peephole_;
   dir_ = this->layer_param_.renet_lstm_param().direction();
   num_output_ = this->layer_param_.renet_lstm_param().num_output();
   patch_h_ = this->layer_param_.renet_lstm_param().patch_height();
   patch_w_ = this->layer_param_.renet_lstm_param().patch_width();
 
   CHECK_EQ(bottom[0]->num_axes(), 4);
-  CHECK_EQ(bottom[0]->shape(2) % patch_h_, 0);
-  CHECK_EQ(bottom[0]->shape(3) % patch_w_, 0);
 
   channels_ = bottom[0]->shape(1);
   patch_dim_ = channels_ * patch_h_ * patch_w_;
@@ -86,6 +84,11 @@ void ReNetLSTMLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // four bias vectors b_i, b_c, b_o, b_f
   vector<int> B_shape(1, num_output_);
 
+  int parameter_memory = W_X_H_shape[0] * W_X_H_shape[1] * 4 + num_output_;
+  parameter_memory *= 2;
+  LOG(INFO)<<"Layer "<<this->layer_param_.name()
+  <<" parameter memory footprint "<<parameter_memory * sizeof(Dtype);
+
   shared_ptr<Filler<Dtype> > general_weight_filler(
       GetFiller<Dtype>(
           this->layer_param_.renet_lstm_param().general_weight_filler()));
@@ -130,7 +133,6 @@ void ReNetLSTMLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
             this->blobs_[dir_num * num_blobs_per_dir_ + p].get());
       }
     }
-
     // input gate bias vector, b_i
     input_gate_bias_filler->Fill(
         this->blobs_[dir_num * num_blobs_per_dir_ + 7].get());
@@ -151,15 +153,14 @@ void ReNetLSTMLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   CHECK_EQ(bottom[0]->num_axes(), 4);
   CHECK_EQ(bottom[0]->shape(1), channels_);
-  CHECK_EQ(bottom[0]->shape(2) % patch_h_, 0);
-  CHECK_EQ(bottom[0]->shape(3) % patch_w_, 0);
+  CHECK_EQ(bottom[0]->shape(2) % patch_h_, 0)<<" bottom height "<<bottom[0]->shape(2);
+  CHECK_EQ(bottom[0]->shape(3) % patch_w_, 0)<<" bottom width "<<bottom[0]->shape(3);
 
   num_ = bottom[0]->shape(0);
   patch_ny_ = bottom[0]->shape(2) / patch_h_;
   patch_nx_ = bottom[0]->shape(3) / patch_w_;
 
-  num_RNN_ =
-      dir_ == ReNetLSTMParameter_Direction_X_DIR ? patch_ny_ : patch_nx_;
+  num_RNN_ = dir_ == ReNetLSTMParameter_Direction_X_DIR ? patch_ny_ : patch_nx_;
   num_steps_ =
       dir_ == ReNetLSTMParameter_Direction_X_DIR ? patch_nx_ : patch_ny_;
 
@@ -188,6 +189,7 @@ void ReNetLSTMLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   for (int dir_num = 0; dir_num < 2; ++dir_num) {
     X_H_data_[dir_num]->Reshape(X_H_shape_4D);
     X_H_diff_[dir_num]->Reshape(X_H_shape_3D);
+    X_H_diff_[dir_num]->Reshape(X_H_shape_3D);
     gi_data_[dir_num]->Reshape(cell_shape_4D);
     gi_diff_[dir_num]->Reshape(cell_shape_3D);
     gi_next_diff_[dir_num]->Reshape(cell_shape_3D);
@@ -204,6 +206,15 @@ void ReNetLSTMLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     hidden_data_[dir_num]->Reshape(cell_shape_3D);
     hidden_diff_[dir_num]->Reshape(cell_shape_3D);
   }
+
+  int internal_var_memory = num_steps_ * num_RNN_ * num_
+      * (patch_dim_ + num_output_)
+      + num_RNN_ * num_ * (patch_dim_ + num_output_)
+      + num_steps_ * num_RNN_ * num_ * num_output_ * 5
+      + num_RNN_ * num_ * num_output_ * 10;
+  internal_var_memory *= 2;
+  DLOG(INFO)<<"Layer: "<<this->layer_param_.name()
+  <<" Internal variable memory footprint:"<<internal_var_memory*sizeof(Dtype);
 
   vector<int> top_shape(4);
   top_shape[0] = num_;
@@ -277,12 +288,17 @@ void ReNetLSTMLayer<Dtype>::ComputeCellData_cpu(int dir_num, int step_id,
       this->blobs_[dir_num * num_blobs_per_dir_ + 2]->cpu_data();
   const Dtype* param_W_f_data =
       this->blobs_[dir_num * num_blobs_per_dir_ + 3]->cpu_data();
-  const Dtype* param_W_i_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->cpu_data();
-  const Dtype* param_W_o_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->cpu_data();
-  const Dtype* param_W_f_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->cpu_data();
+  const Dtype* param_W_i_c_data = NULL;
+  const Dtype* param_W_o_c_data = NULL;
+  const Dtype* param_W_f_c_data = NULL;
+  if (peephole_) {
+    param_W_i_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 4]->cpu_data();
+    param_W_o_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 5]->cpu_data();
+    param_W_f_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 6]->cpu_data();
+  }
 
   Dtype* gi_data = gi_data_[dir_num]->mutable_cpu_data()
       + gi_data_[dir_num]->offset(step_id);
@@ -460,12 +476,17 @@ void ReNetLSTMLayer<Dtype>::ComputeCellDiff_cpu(int dir_num, int step_id,
     int step_start, int step_end) {
   const int step = dir_num == 0 ? 1 : -1;
 
-  const Dtype* param_W_i_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->cpu_data();
-  const Dtype* param_W_o_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->cpu_data();
-  const Dtype* param_W_f_c_data =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->cpu_data();
+  const Dtype *param_W_i_c_data = NULL;
+  const Dtype *param_W_o_c_data = NULL;
+  const Dtype *param_W_f_c_data = NULL;
+  if (peephole_) {
+    param_W_i_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 4]->cpu_data();
+    param_W_o_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 5]->cpu_data();
+    param_W_f_c_data =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 6]->cpu_data();
+  }
 
   const int cell_data_offset = gi_data_[dir_num]->offset(step_id);
 
@@ -593,8 +614,7 @@ void ReNetLSTMLayer<Dtype>::Compute_X_H_Diff_cpu(int dir_num, int step_id,
       num_output_, (Dtype) 1., go_diff, param_W_o_data, (Dtype) 1., X_H_diff);
   if (step_id != step_start) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_RNN_ * num_, X_H_dim,
-        num_output_, (Dtype) 1., gf_diff, param_W_f_data, (Dtype) 1.,
-        X_H_diff);
+        num_output_, (Dtype) 1., gf_diff, param_W_f_data, (Dtype) 1., X_H_diff);
   }
 
   // copy gradients w.r.t. X_H_ into bottom diff
@@ -649,12 +669,17 @@ void ReNetLSTMLayer<Dtype>::ComputeParamDiff_cpu(int dir_num, int step_id,
       this->blobs_[dir_num * num_blobs_per_dir_ + 2]->mutable_cpu_diff();
   Dtype* param_W_f_diff =
       this->blobs_[dir_num * num_blobs_per_dir_ + 3]->mutable_cpu_diff();
-  Dtype* param_W_i_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 4]->mutable_cpu_diff();
-  Dtype* param_W_o_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 5]->mutable_cpu_diff();
-  Dtype* param_W_f_c_diff =
-      this->blobs_[dir_num * num_blobs_per_dir_ + 6]->mutable_cpu_diff();
+  Dtype* param_W_i_c_diff = NULL;
+  Dtype* param_W_o_c_diff = NULL;
+  Dtype* param_W_f_c_diff = NULL;
+  if (peephole_) {
+    param_W_i_c_diff =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 4]->mutable_cpu_diff();
+    param_W_o_c_diff =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 5]->mutable_cpu_diff();
+    param_W_f_c_diff =
+        this->blobs_[dir_num * num_blobs_per_dir_ + 6]->mutable_cpu_diff();
+  }
 
   Dtype* bias_b_i_diff =
       this->blobs_[dir_num * num_blobs_per_dir_ + 7]->mutable_cpu_diff();

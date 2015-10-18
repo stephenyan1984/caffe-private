@@ -35,7 +35,7 @@ class ReNetLSTMLayerTest: public MultiDeviceTest<TypeParam> {
   virtual void InitParam(ReNetLSTMParameter *renet_lstm_param,
       ReNetLSTMParameter::Direction dir,
       int num_output,
-      int patch_width, int patch_height) {
+      int patch_width, int patch_height, bool peephole = true) {
     renet_lstm_param->set_direction(dir);
     renet_lstm_param->set_num_output(num_output);
     renet_lstm_param->set_patch_width(patch_width);
@@ -50,6 +50,8 @@ class ReNetLSTMLayerTest: public MultiDeviceTest<TypeParam> {
 
     renet_lstm_param->mutable_forget_gate_bias_filler()->set_type("constant");
     renet_lstm_param->mutable_forget_gate_bias_filler()->set_value(1.0);
+
+    renet_lstm_param->set_peephole(peephole);
   }
   Blob<Dtype>* const blob_bottom_;
   Blob<Dtype>* const blob_top_;
@@ -101,6 +103,59 @@ TYPED_TEST(ReNetLSTMLayerTest, TestGradientYdirPatch2x2) {
   LayerParameter layer_param;
   ReNetLSTMParameter *renet_lstm_param = layer_param.mutable_renet_lstm_param();
   this->InitParam(renet_lstm_param, ReNetLSTMParameter_Direction_Y_DIR, 2, 2, 2);
+
+  ReNetLSTMLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+    checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+        this->blob_top_vec_);
+}
+
+TYPED_TEST(ReNetLSTMLayerTest, TestGradientXdirPatch1x1_NoPeephole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ReNetLSTMParameter *renet_lstm_param = layer_param.mutable_renet_lstm_param();
+  this->InitParam(renet_lstm_param, ReNetLSTMParameter_Direction_X_DIR, 2, 1, 1,
+      false);
+
+  ReNetLSTMLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(ReNetLSTMLayerTest, TestGradientXdirPatch2x2_NoPeephole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ReNetLSTMParameter *renet_lstm_param = layer_param.mutable_renet_lstm_param();
+  this->InitParam(renet_lstm_param, ReNetLSTMParameter_Direction_X_DIR, 2, 2, 2,
+      false);
+
+  ReNetLSTMLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+
+TYPED_TEST(ReNetLSTMLayerTest, TestGradientYdirPatch1x1_NoPeephole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ReNetLSTMParameter *renet_lstm_param = layer_param.mutable_renet_lstm_param();
+  this->InitParam(renet_lstm_param, ReNetLSTMParameter_Direction_Y_DIR, 2, 1, 1,
+      false);
+
+  ReNetLSTMLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(ReNetLSTMLayerTest, TestGradientYdirPatch2x2_NoPeephole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ReNetLSTMParameter *renet_lstm_param = layer_param.mutable_renet_lstm_param();
+  this->InitParam(renet_lstm_param, ReNetLSTMParameter_Direction_Y_DIR, 2, 2, 2,
+      false);
 
   ReNetLSTMLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3);

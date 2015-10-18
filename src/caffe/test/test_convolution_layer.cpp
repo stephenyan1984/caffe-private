@@ -106,8 +106,8 @@ class ConvolutionLayerTest : public MultiDeviceTest<TypeParam> {
 
  protected:
   ConvolutionLayerTest()
-      : blob_bottom_(new Blob<Dtype>(2, 3, 6, 4)),
-        blob_bottom_2_(new Blob<Dtype>(2, 3, 6, 4)),
+      : blob_bottom_(new Blob<Dtype>(2, 3, 8, 6)),
+        blob_bottom_2_(new Blob<Dtype>(2, 3, 8, 6)),
         blob_top_(new Blob<Dtype>()),
         blob_top_2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
@@ -160,12 +160,12 @@ TYPED_TEST(ConvolutionLayerTest, TestSetup) {
   layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_->num(), 2);
   EXPECT_EQ(this->blob_top_->channels(), 4);
-  EXPECT_EQ(this->blob_top_->height(), 2);
-  EXPECT_EQ(this->blob_top_->width(), 1);
+  EXPECT_EQ(this->blob_top_->height(), 3);
+  EXPECT_EQ(this->blob_top_->width(), 2);
   EXPECT_EQ(this->blob_top_2_->num(), 2);
   EXPECT_EQ(this->blob_top_2_->channels(), 4);
-  EXPECT_EQ(this->blob_top_2_->height(), 2);
-  EXPECT_EQ(this->blob_top_2_->width(), 1);
+  EXPECT_EQ(this->blob_top_2_->height(), 3);
+  EXPECT_EQ(this->blob_top_2_->width(), 2);
   // setting group should not change the shape
   convolution_param->set_num_output(3);
   convolution_param->set_group(3);
@@ -173,12 +173,12 @@ TYPED_TEST(ConvolutionLayerTest, TestSetup) {
   layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_->num(), 2);
   EXPECT_EQ(this->blob_top_->channels(), 3);
-  EXPECT_EQ(this->blob_top_->height(), 2);
-  EXPECT_EQ(this->blob_top_->width(), 1);
+  EXPECT_EQ(this->blob_top_->height(), 3);
+  EXPECT_EQ(this->blob_top_->width(), 2);
   EXPECT_EQ(this->blob_top_2_->num(), 2);
   EXPECT_EQ(this->blob_top_2_->channels(), 3);
-  EXPECT_EQ(this->blob_top_2_->height(), 2);
-  EXPECT_EQ(this->blob_top_2_->width(), 1);
+  EXPECT_EQ(this->blob_top_2_->height(), 3);
+  EXPECT_EQ(this->blob_top_2_->width(), 2);
 }
 
 TYPED_TEST(ConvolutionLayerTest, TestSimpleConvolution) {
@@ -386,6 +386,25 @@ TYPED_TEST(ConvolutionLayerTest, TestGradient) {
       this->blob_top_vec_);
 }
 
+TYPED_TEST(ConvolutionLayerTest, TestGradient_Hole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ConvolutionParameter* convolution_param =
+      layer_param.mutable_convolution_param();
+  this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
+  this->blob_top_vec_.push_back(this->blob_top_2_);
+  convolution_param->set_kernel_size(3);
+  convolution_param->set_stride(2);
+  convolution_param->set_num_output(2);
+  convolution_param->mutable_weight_filler()->set_type("gaussian");
+  convolution_param->mutable_bias_filler()->set_type("gaussian");
+  convolution_param->set_hole(2);
+  ConvolutionLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
 TYPED_TEST(ConvolutionLayerTest, Test1x1Gradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
@@ -411,6 +430,24 @@ TYPED_TEST(ConvolutionLayerTest, TestGradientGroup) {
       layer_param.mutable_convolution_param();
   convolution_param->set_kernel_size(3);
   convolution_param->set_stride(2);
+  convolution_param->set_num_output(3);
+  convolution_param->set_group(3);
+  convolution_param->mutable_weight_filler()->set_type("gaussian");
+  convolution_param->mutable_bias_filler()->set_type("gaussian");
+  ConvolutionLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(ConvolutionLayerTest, TestGradientGroup_Hole) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  ConvolutionParameter* convolution_param =
+      layer_param.mutable_convolution_param();
+  convolution_param->set_kernel_size(3);
+  convolution_param->set_stride(2);
+  convolution_param->set_hole(2);
   convolution_param->set_num_output(3);
   convolution_param->set_group(3);
   convolution_param->mutable_weight_filler()->set_type("gaussian");

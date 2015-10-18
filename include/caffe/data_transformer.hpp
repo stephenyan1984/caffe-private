@@ -119,6 +119,11 @@ class DataTransformer {
   void TransformImgAndSegUniformSize(const Datum& datum, const cv::Mat& cv_img,
       Blob<Dtype>* transformed_blob, Blob<Dtype>* transformed_label);
 
+  void ComputeCropHeightWidth(Dtype aspect_ratio);
+
+  int crop_height_from_aspect_ratio() { return crop_height_from_aspect_ratio_;}
+  int crop_width_from_aspect_ratio() { return crop_width_from_aspect_ratio_; }
+
  protected:
    /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
@@ -139,6 +144,11 @@ class DataTransformer {
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;
+
+  int min_height_;
+  int min_width_;
+  int crop_height_from_aspect_ratio_;
+  int crop_width_from_aspect_ratio_;
 };
 
 }  // namespace caffe

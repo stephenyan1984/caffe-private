@@ -261,23 +261,21 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       for (int dim = 0; dim < 3; ++dim) {
         int blob_offset = dim * num_blobs_per_dimension_;
         const Dtype *param_W_i_data = this->blobs_[blob_offset]->cpu_data();
-        const Dtype *param_W_c_data =
-            this->blobs_[blob_offset + 1]->cpu_data();
-        const Dtype *param_W_o_data =
-            this->blobs_[blob_offset + 2]->cpu_data();
-        const Dtype *param_W_f_data =
-            this->blobs_[blob_offset + 3]->cpu_data();
-        const Dtype *param_W_i_c_data =
-            this->blobs_[blob_offset + 4]->cpu_data();
-        const Dtype *param_W_o_c_data =
-            this->blobs_[blob_offset + 5]->cpu_data();
-        const Dtype *param_W_f_c_data =
-            this->blobs_[blob_offset + 6]->cpu_data();
+        const Dtype *param_W_c_data = this->blobs_[blob_offset + 1]->cpu_data();
+        const Dtype *param_W_o_data = this->blobs_[blob_offset + 2]->cpu_data();
+        const Dtype *param_W_f_data = this->blobs_[blob_offset + 3]->cpu_data();
+        const Dtype *param_W_i_c_data = NULL;
+        const Dtype *param_W_o_c_data = NULL;
+        const Dtype *param_W_f_c_data = NULL;
+        if (peephole_) {
+          param_W_i_c_data = this->blobs_[blob_offset + 4]->cpu_data();
+          param_W_o_c_data = this->blobs_[blob_offset + 5]->cpu_data();
+          param_W_f_c_data = this->blobs_[blob_offset + 6]->cpu_data();
+        }
         const Dtype *bias_b_i_data = this->blobs_[blob_offset + 7]->cpu_data();
         const Dtype *bias_b_c_data = this->blobs_[blob_offset + 8]->cpu_data();
         const Dtype *bias_b_o_data = this->blobs_[blob_offset + 9]->cpu_data();
-        const Dtype *bias_b_f_data =
-            this->blobs_[blob_offset + 10]->cpu_data();
+        const Dtype *bias_b_f_data = this->blobs_[blob_offset + 10]->cpu_data();
 
         Dtype *gi_data = gi_data_[dim]->mutable_cpu_data()
             + gi_data_[dim]->offset(y, x);
@@ -316,8 +314,8 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         // compute gi_data
         // W^x_i * H_{z,y,x}
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
-            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_i_data,
-            (Dtype) 0., gi_data);
+            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_i_data, (Dtype) 0.,
+            gi_data);
         if (not_start[dim] && peephole_) {
           // W^x_{i,c} * s_{z,y,x-1}
           caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
@@ -332,8 +330,8 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         // compute ci_data
         // W_^x_c*H_{z,y,x}
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
-            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_c_data,
-            (Dtype) 0., ci_data);
+            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_c_data, (Dtype) 0.,
+            ci_data);
         // add bias b^x_c
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, num_output_, 1,
             (Dtype) 1., bias_multiplier_.cpu_data(), bias_b_c_data, (Dtype) 1.,
@@ -341,8 +339,8 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
         // compute go_data
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
-            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_o_data,
-            (Dtype) 0., go_data);
+            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_o_data, (Dtype) 0.,
+            go_data);
         // add bias b^x_o
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, num_output_, 1,
             (Dtype) 1., bias_multiplier_.cpu_data(), bias_b_o_data, (Dtype) 1.,
@@ -351,8 +349,8 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         // compute gf_data
         // W^x_f*H_{z,y,x}
         caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
-            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_f_data,
-            (Dtype) 0., gf_data);
+            3 * num_output_, (Dtype) 1., H_data_ptr, param_W_f_data, (Dtype) 0.,
+            gf_data);
         if (not_start[dim] && peephole_) {
           // W^x_{f,c} * s_{z,y,x-1}
           caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, num_, num_output_,
@@ -370,8 +368,7 @@ void GridLSTM3DLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             gi_data[data_index] = sigmoid<Dtype>(gi_data[data_index]);
             ci_data[data_index] = tanh<Dtype>(ci_data[data_index]);
             gf_data[data_index] = sigmoid<Dtype>(gf_data[data_index]);
-            cstate_data[data_index] = ci_data[data_index]
-                * gi_data[data_index];
+            cstate_data[data_index] = ci_data[data_index] * gi_data[data_index];
             if (not_start[dim]) {
               cstate_data[data_index] += gf_data[data_index]
                   * cstate_prev_data[data_index];
@@ -471,18 +468,17 @@ void GridLSTM3DLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         int blob_offset = dim * num_blobs_per_dimension_;
 
         const Dtype *param_W_i_data = this->blobs_[blob_offset]->cpu_data();
-        const Dtype *param_W_c_data =
-            this->blobs_[blob_offset + 1]->cpu_data();
-        const Dtype *param_W_o_data =
-            this->blobs_[blob_offset + 2]->cpu_data();
-        const Dtype *param_W_f_data =
-            this->blobs_[blob_offset + 3]->cpu_data();
-        const Dtype *param_W_i_c_data =
-            this->blobs_[blob_offset + 4]->cpu_data();
-        const Dtype *param_W_o_c_data =
-            this->blobs_[blob_offset + 5]->cpu_data();
-        const Dtype *param_W_f_c_data =
-            this->blobs_[blob_offset + 6]->cpu_data();
+        const Dtype *param_W_c_data = this->blobs_[blob_offset + 1]->cpu_data();
+        const Dtype *param_W_o_data = this->blobs_[blob_offset + 2]->cpu_data();
+        const Dtype *param_W_f_data = this->blobs_[blob_offset + 3]->cpu_data();
+        const Dtype *param_W_i_c_data = NULL;
+        const Dtype *param_W_o_c_data = NULL;
+        const Dtype *param_W_f_c_data = NULL;
+        if (peephole_) {
+          param_W_i_c_data = this->blobs_[blob_offset + 4]->cpu_data();
+          param_W_o_c_data = this->blobs_[blob_offset + 5]->cpu_data();
+          param_W_f_c_data = this->blobs_[blob_offset + 6]->cpu_data();
+        }
 
         Dtype *param_W_i_diff = this->blobs_[blob_offset]->mutable_cpu_diff();
         Dtype *param_W_c_diff =
@@ -491,12 +487,15 @@ void GridLSTM3DLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
             this->blobs_[blob_offset + 2]->mutable_cpu_diff();
         Dtype *param_W_f_diff =
             this->blobs_[blob_offset + 3]->mutable_cpu_diff();
-        Dtype *param_W_i_c_diff =
-            this->blobs_[blob_offset + 4]->mutable_cpu_diff();
-        Dtype *param_W_o_c_diff =
-            this->blobs_[blob_offset + 5]->mutable_cpu_diff();
-        Dtype *param_W_f_c_diff =
-            this->blobs_[blob_offset + 6]->mutable_cpu_diff();
+        Dtype *param_W_i_c_diff = NULL;
+        Dtype *param_W_o_c_diff = NULL;
+        Dtype *param_W_f_c_diff = NULL;
+        if (peephole_) {
+          param_W_i_c_diff = this->blobs_[blob_offset + 4]->mutable_cpu_diff();
+          param_W_o_c_diff = this->blobs_[blob_offset + 5]->mutable_cpu_diff();
+          param_W_f_c_diff = this->blobs_[blob_offset + 6]->mutable_cpu_diff();
+        }
+
         Dtype *bias_b_i_diff =
             this->blobs_[blob_offset + 7]->mutable_cpu_diff();
         Dtype *bias_b_c_diff =
@@ -628,12 +627,12 @@ void GridLSTM3DLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
               num_output_, (Dtype) 1., go_diff, param_W_o_c_data, (Dtype) 1.,
               cstate_diff);
           if (not_end[dim]) {
-            caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-                num_output_, num_output_, (Dtype) 1., gf_next_diff,
-                param_W_f_c_data, (Dtype) 1., cstate_diff);
-            caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-                num_output_, num_output_, (Dtype) 1., gi_next_diff,
-                param_W_i_c_data, (Dtype) 1., cstate_diff);
+            caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, num_output_,
+                num_output_, (Dtype) 1., gf_next_diff, param_W_f_c_data,
+                (Dtype) 1., cstate_diff);
+            caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, num_output_,
+                num_output_, (Dtype) 1., gi_next_diff, param_W_i_c_data,
+                (Dtype) 1., cstate_diff);
           }
         }
 
@@ -657,19 +656,19 @@ void GridLSTM3DLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         }
 
         // compute gradients w.r.t H=[H^x H^y H^z]
-        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-            3 * num_output_, num_output_, (Dtype) 1., gi_diff, param_W_i_data,
-            (Dtype) 1., H_diff_ptr);
-        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-            3 * num_output_, num_output_, (Dtype) 1., ci_diff, param_W_c_data,
-            (Dtype) 1., H_diff_ptr);
-        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-            3 * num_output_, num_output_, (Dtype) 1., go_diff, param_W_o_data,
-            (Dtype) 1., H_diff_ptr);
+        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, 3 * num_output_,
+            num_output_, (Dtype) 1., gi_diff, param_W_i_data, (Dtype) 1.,
+            H_diff_ptr);
+        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, 3 * num_output_,
+            num_output_, (Dtype) 1., ci_diff, param_W_c_data, (Dtype) 1.,
+            H_diff_ptr);
+        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, 3 * num_output_,
+            num_output_, (Dtype) 1., go_diff, param_W_o_data, (Dtype) 1.,
+            H_diff_ptr);
         if (not_start[dim]) {
           caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_,
-              3 * num_output_, num_output_, (Dtype) 1., gf_diff,
-              param_W_f_data, (Dtype) 1., H_diff_ptr);
+              3 * num_output_, num_output_, (Dtype) 1., gf_diff, param_W_f_data,
+              (Dtype) 1., H_diff_ptr);
         }
 
         // compute gradients w.r.t. layer parameter matrices

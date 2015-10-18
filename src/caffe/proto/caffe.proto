@@ -276,7 +276,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 144 (last added: dimension_transpose_param)
+// LayerParameter next available layer-specific ID: 146 (last added: shift_stitch_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -306,7 +306,12 @@ message LayerParameter {
   // included/excluded.
   repeated NetStateRule include = 8;
   repeated NetStateRule exclude = 9;
-
+  
+  // When checking the shape of blob from which the parameter blob is initialized,
+  // do we require the shape is exactly the same or just the total count is equal?
+  optional bool strict_dim = 144 [default = true];
+  
+  
   // Parameters for data pre-processing.
   optional TransformationParameter transform_param = 100;
   optional SemanticLabelingTransformationParameter semantic_labeling_transform_param = 138;
@@ -355,6 +360,7 @@ message LayerParameter {
   optional ReLUParameter relu_param = 123;
   optional ReNetLSTMParameter renet_lstm_param = 141;
   optional ReshapeParameter reshape_param = 133;
+  optional ShiftStitchParameter shift_stitch_param = 145;  
   optional SigmoidParameter sigmoid_param = 124;
   optional SoftmaxParameter softmax_param = 125;
   optional SliceParameter slice_param = 126;
@@ -377,7 +383,23 @@ message TransformationParameter {
   // Specify if we would like to randomly crop an image
   // and to have differnt height and width.
   optional uint32 crop_height = 6 [default = 0];
-  optional uint32 crop_width = 7 [default = 0];  
+  optional uint32 crop_width = 7 [default = 0];
+  
+  // Alternatively, we can specify the min height and 
+  // min width of input image
+  // Also specify a set of allowed aspect ratios as well
+  // as their likelihood to be sampled
+  // Then, crop height and width are automatically inferred 
+  optional uint32 min_height = 8 [default = 0];
+  optional uint32 min_width = 9 [default = 0];
+  // the cropping height and width must be a multiple of the given value
+  optional uint32 height_multiple = 10 [default = 1];
+  optional uint32 width_multiple = 11 [default = 1];
+  // Useful when image in the database needs resizing before cropping
+  optional uint32 resize_short_side_min = 12 [default = 0];
+  optional uint32 resize_short_side_max = 13 [default = 0];
+  optional uint32 resize_size = 14 [default = 0];
+    
   // mean_file and mean_value cannot be specified at the same time
   optional string mean_file = 4;
   // if specified can be repeated once (would substract it from all the channels)
@@ -486,6 +508,9 @@ message ConvolutionParameter {
     CUDNN = 2;
   }
   optional Engine engine = 15 [default = DEFAULT];
+  optional uint32 hole = 17 [default = 1];
+  optional uint32 hole_h = 18;
+  optional uint32 hole_w = 19; 
 }
 
 // Message that stores parameters used by DataLayer
@@ -798,6 +823,14 @@ message ReshapeParameter {
   // The new shape of the Blob. Must have the same "count" (product of
   // dimensions) as the input Blob.
   optional BlobShape shape = 1;
+}
+
+// Message that stores parameters used by ShiftStitchLayer
+message ShiftStitchParameter {
+  optional uint32 iter = 1; // number of iterations of stitching operation 
+  repeated uint32 stride = 2; // The stride (equal in Y, X)
+  repeated uint32 stride_h = 3; // The stride height
+  repeated uint32 stride_w = 4; // The stride width
 }
 
 // Message that stores parameters used by RecurrentLayer

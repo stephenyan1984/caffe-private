@@ -22,10 +22,7 @@ class ImageSegUniformSizeDataLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual inline const char* type() const { return "ImageSegUniformSizeData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int MinTopBlobs() const { return 1; }
-  virtual inline int MaxTopBlobs() const { return 2; }
-
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+  virtual inline int MaxTopBlobs() const { return 3; }
  protected:
   virtual void InternalThreadEntry();
 
